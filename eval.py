@@ -64,6 +64,16 @@ else:
         datasets = {"target_names": ['positive_examples', 'negative_examples']}
         x_raw = ["a masterpiece four years in the making", "everything is off."]
         y_test = [1, 0]
+    elif dataset_name == "firstmessages":
+        def getBody(x):
+          try:
+            return x.split("|")[4]
+          except:
+            print("get body failed on: " + x)
+            return "NULL"
+        datasets = {"target_names": ['not-inquiry', 'inquiry']}
+        x_raw = list(map(lambda x: getBody(x), open("../first_messages.txt", "r").readlines()))[len(open("../first_messages.txt","r").readlines()):-1]
+        y_test = [0 for _ in x_raw]
     else:
         datasets = {"target_names": ['alt.atheism', 'comp.graphics', 'sci.med', 'soc.religion.christian']}
         x_raw = ["The number of reported cases of gonorrhea in Colorado increased",

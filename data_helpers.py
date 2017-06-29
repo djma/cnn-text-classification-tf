@@ -76,6 +76,25 @@ def get_datasets_mrpolarity(positive_data_file, negative_data_file):
     datasets['target_names'] = ['positive_examples', 'negative_examples']
     return datasets
 
+def get_datasets_firstmessages():
+    """
+    Loads first leasing first messages
+    """
+    def getBody(x):
+      try:
+        return x.split("|")[4]
+      except:
+        print("get body failed on: " + x)
+        return "NULL"
+    target = list(map(lambda x: 1 if x=="1\n" else 0, open("../first_messages_class.txt", "r").readlines()))
+    examples = list(map(lambda x: getBody(x), open("../first_messages.txt", "r").readlines()))[0:len(target)]
+    datasets = dict()
+    datasets['data'] = examples
+    datasets['target'] = target
+    datasets['target_names'] = ['not-inquiry', 'inquiry']
+    print(target)
+    return datasets
+
 
 def get_datasets_localdata(container_path=None, categories=None, load_content=True,
                        encoding='utf-8', shuffle=True, random_state=42):
