@@ -2,6 +2,7 @@ import numpy as np
 import re
 from sklearn.datasets import fetch_20newsgroups
 from sklearn.datasets import load_files
+import html
 
 
 def clean_str(string):
@@ -9,20 +10,31 @@ def clean_str(string):
     Tokenization/string cleaning for all datasets except for SST.
     Original taken from https://github.com/yoonkim/CNN_sentence/blob/master/process_data.py
     """
-    string = re.sub(r"[^A-Za-z0-9(),!?\'\`]", " ", string)
-    string = re.sub(r"\'s", " \'s", string)
-    string = re.sub(r"\'ve", " \'ve", string)
-    string = re.sub(r"n\'t", " n\'t", string)
-    string = re.sub(r"\'re", " \'re", string)
-    string = re.sub(r"\'d", " \'d", string)
+    string = html.unescape(string)
+    string = string.strip().lower()
+    string = re.sub(r"http\S*", "website_token", string)
+    string = re.sub(r"[^@ ]+@[^@ ]+\.[^@ ]+", "email_token", string)
+    string = re.sub(r"(?:(?:\+?1\s*(?:[.-]\s*)?)?(?:\(\s*([2-9]1[02-9]|[2-9][02-8]1|[2-9][02-8][02-9])\s*\)|([2-9]1[02-9]|[2-9][02-8]1|[2-9][02-8][02-9]))\s*(?:[.-]\s*)?)?([2-9]1[02-9]|[2-9][02-9]1|[2-9][02-9]{2})\s*(?:[.-]\s*)?([0-9]{4})(?:\s*(?:#|x\.?|ext\.?|extension)\s*(\d+))?", "phone_token", string)
+    #string = re.sub(r"[^A-Za-z0-9(),&!/?@_.\'\`]", " ", string)
+    string = re.sub(r"\'s", " is", string)
+    string = re.sub(r"\'ve", " have", string)
+    string = re.sub(r"n\'t", " not", string)
+    string = re.sub(r"\'re", " are", string)
+    string = re.sub(r"\'d", " would", string)
     string = re.sub(r"\'ll", " \'ll", string)
     string = re.sub(r",", " , ", string)
+    string = re.sub(r"\$", " $ ", string)
+    string = re.sub(r"\.", " . ", string)
     string = re.sub(r"!", " ! ", string)
     string = re.sub(r"\(", " \( ", string)
     string = re.sub(r"\)", " \) ", string)
     string = re.sub(r"\?", " \? ", string)
     string = re.sub(r"\s{2,}", " ", string)
-    return string.strip().lower()
+
+    # sh1tsp33k
+    string = re.sub(r" u ", " you ", string)
+    string = re.sub(r" i'm ", " i am ", string)
+    return string
 
 
 def batch_iter(data, batch_size, num_epochs, shuffle=True):
@@ -86,13 +98,25 @@ def get_datasets_firstmessages():
       except:
         print("get body failed on: " + x)
         return "NULL"
-    target = list(map(lambda x: 1 if x=="1\n" else 0, open("../first_messages_class.txt", "r").readlines()))
+    target = list(map(lambda x: x.strip().split(","), open("../first_messages_class.txt", "r").readlines()))
     examples = list(map(lambda x: getBody(x), open("../first_messages.txt", "r").readlines()))[0:len(target)]
     datasets = dict()
     datasets['data'] = examples
     datasets['target'] = target
-    datasets['target_names'] = ['not-inquiry', 'inquiry']
-    print(target)
+    datasets['target_names'] = [
+        'defer to human', 
+        'avail. inquiry',
+        'active scheduling',
+        'property info request',
+        'prospect gave additional contact info',
+        'move-in/out dates inquiry',
+        'price negotiation / inquiry',
+        'application info',
+        'animal inquiry',
+        'seeking roommate',
+        'is furnished home',
+        'more pics',
+        ]
     return datasets
 
 
@@ -113,6 +137,25 @@ def get_datasets_localdata(container_path=None, categories=None, load_content=Tr
     return datasets
 
 
+def load_multidata_labels(datasets):
+    """
+    Load data and labels
+    :param datasets:
+    :return:
+    """
+    # Split by words
+    x_text = datasets['data']
+    x_text = [clean_str(sent) for sent in x_text]
+    # Generate labels
+    labels = []
+    for i in range(len(x_text)):
+        label = [0 for j in datasets['target_names']]
+        for tag in datasets['target'][i]:
+          label[int(tag)] = 1
+        labels.append(label)
+    y = np.array(labels)
+    return [x_text, y]
+
 def load_data_labels(datasets):
     """
     Load data and labels
@@ -130,7 +173,6 @@ def load_data_labels(datasets):
         labels.append(label)
     y = np.array(labels)
     return [x_text, y]
-
 
 def load_embedding_vectors_word2vec(vocabulary, filename, binary):
     # load embedding_vectors from the word2vec

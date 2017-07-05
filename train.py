@@ -72,7 +72,13 @@ elif dataset_name == "localdata":
                                                      random_state=cfg["datasets"][dataset_name]["random_state"])
 elif dataset_name == "firstmessages":
     datasets = data_helpers.get_datasets_firstmessages()
-x_text, y = data_helpers.load_data_labels(datasets)
+
+if dataset_name != "firstmessages":
+  x_text, y = data_helpers.load_data_labels(datasets)
+else:
+  x_text, y = data_helpers.load_multidata_labels(datasets)
+for vec in x_text:
+  print(vec)
 
 # Build vocabulary
 max_document_length = max([len(x.split(" ")) for x in x_text])

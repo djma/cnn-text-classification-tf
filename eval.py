@@ -18,6 +18,13 @@ def softmax(x):
     exp_x = np.exp(x - max_x)
     return exp_x / np.sum(exp_x, axis=1).reshape((-1, 1))
 
+def sigmoid(x):
+    """Compute sigmoid values for each sets of scores in x. Do not softmax"""
+    if x.ndim == 1:
+        x = x.reshape((1, -1))
+    exp_x = np.exp(x)
+    return exp_x / (1.0 + exp_x)
+
 with open("config.yml", 'r') as ymlfile:
     cfg = yaml.load(ymlfile)
 
@@ -56,7 +63,14 @@ if FLAGS.eval_train:
                                               categories=cfg["datasets"][dataset_name]["categories"],
                                               shuffle=cfg["datasets"][dataset_name]["shuffle"],
                                               random_state=cfg["datasets"][dataset_name]["random_state"])
-    x_raw, y_test = data_helpers.load_data_labels(datasets)
+    elif dataset_name == "firstmessages":
+        datasets = data_helpers.get_datasets_firstmessages()
+
+    if dataset_name != "firstmessages":
+      x_raw, y_test = data_helpers.load_data_labels(datasets)
+    else:
+      x_raw, y_test = data_helpers.load_multidata_labels(datasets)
+
     y_test = np.argmax(y_test, axis=1)
     print("Total number of test examples: {}".format(len(y_test)))
 else:
@@ -71,8 +85,22 @@ else:
           except:
             print("get body failed on: " + x)
             return "NULL"
-        datasets = {"target_names": ['not-inquiry', 'inquiry']}
-        x_raw = list(map(lambda x: getBody(x), open("../first_messages.txt", "r").readlines()))[len(open("../first_messages.txt","r").readlines()):-1]
+        datasets = {}
+        datasets['target_names'] = [
+            'defer to human', 
+            'avail. inquiry',
+            'active scheduling',
+            'property info request',
+            'prospect gave additional contact info',
+            'move-in/out dates inquiry',
+            'price negotiation / inquiry',
+            'application info',
+            'animal inquiry',
+            'seeking roommate',
+            'is furnished home',
+            'more pics',
+            ]
+        x_raw = list(map(lambda x: getBody(x), open("../first_messages.txt", "r").readlines()))[len(open("../first_messages_class.txt","r").readlines()):-1]
         y_test = [0 for _ in x_raw]
     else:
         datasets = {"target_names": ['alt.atheism', 'comp.graphics', 'sci.med', 'soc.religion.christian']}
@@ -122,7 +150,10 @@ with graph.as_default():
         for x_test_batch in batches:
             batch_predictions_scores = sess.run([predictions, scores], {input_x: x_test_batch, dropout_keep_prob: 1.0})
             all_predictions = np.concatenate([all_predictions, batch_predictions_scores[0]])
-            probabilities = softmax(batch_predictions_scores[1])
+            if dataset_name == "firstmessages":
+              probabilities = sigmoid(batch_predictions_scores[1])
+            else:
+              probabilities = softmax(batch_predictions_scores[1])
             if all_probabilities is not None:
                 all_probabilities = np.concatenate([all_probabilities, probabilities])
             else:
