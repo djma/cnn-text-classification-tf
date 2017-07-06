@@ -77,8 +77,8 @@ if dataset_name != "firstmessages":
   x_text, y = data_helpers.load_data_labels(datasets)
 else:
   x_text, y = data_helpers.load_multidata_labels(datasets)
-for vec in x_text:
-  print(vec)
+#for vec in x_text:
+#  print(vec)
 
 # Build vocabulary
 max_document_length = max([len(x.split(" ")) for x in x_text])
@@ -116,6 +116,7 @@ with tf.Graph().as_default():
             embedding_size=embedding_dimension,
             filter_sizes=list(map(int, FLAGS.filter_sizes.split(","))),
             num_filters=FLAGS.num_filters,
+            num_handcrafted_features=4,
             l2_reg_lambda=FLAGS.l2_reg_lambda)
 
         # Define Training procedure
@@ -184,13 +185,45 @@ with tf.Graph().as_default():
                 print("glove file has been loaded\n")
             sess.run(cnn.W.assign(initW))
 
+        def handcraft_features(x):
+          def has_pet(x):
+            if vocab_processor.vocabulary_.get("pet") in x:
+              return 1.0
+            if vocab_processor.vocabulary_.get("dog") in x:
+              return 1.0
+            if vocab_processor.vocabulary_.get("cat") in x:
+              return 1.0
+            return 0.0
+          def has_avail(x):
+            if vocab_processor.vocabulary_.get("available") in x:
+              return 1.0
+            if vocab_processor.vocabulary_.get("availability") in x:
+              return 1.0
+            return 0.0
+          def has_furnish(x):
+            if vocab_processor.vocabulary_.get("furnished") in x:
+              return 1.0
+            if vocab_processor.vocabulary_.get("furniture") in x:
+              return 1.0
+            return 0.0
+          def has_contact_info(x):
+            if vocab_processor.vocabulary_.get("email_token") in x:
+              return 1.0
+            if vocab_processor.vocabulary_.get("phone_token") in x:
+              return 1.0
+            return 0.0
+          return [has_pet(x), has_avail(x), has_furnish(x), has_contact_info(x)]
+
         def train_step(x_batch, y_batch):
             """
             A single training step
             """
+
+            input_x_handcrafted = list(map(handcraft_features, x_batch))
             feed_dict = {
               cnn.input_x: x_batch,
               cnn.input_y: y_batch,
+              cnn.input_x_handcrafted: input_x_handcrafted,
               cnn.dropout_keep_prob: FLAGS.dropout_keep_prob
             }
             _, step, summaries, loss, accuracy = sess.run(
@@ -204,9 +237,13 @@ with tf.Graph().as_default():
             """
             Evaluates model on a dev set
             """
+
+            input_x_handcrafted = list(map(handcraft_features, x_batch))
+            #print(input_x_handcrafted)
             feed_dict = {
               cnn.input_x: x_batch,
               cnn.input_y: y_batch,
+              cnn.input_x_handcrafted: input_x_handcrafted,
               cnn.dropout_keep_prob: 1.0
             }
             step, summaries, loss, accuracy = sess.run(
@@ -223,6 +260,9 @@ with tf.Graph().as_default():
         # Training loop. For each batch...
         for batch in batches:
             x_batch, y_batch = zip(*batch)
+            #print(x_batch.__class__)
+            #print(x_batch[0].__class__)
+            #print(x_batch[1])
             train_step(x_batch, y_batch)
             current_step = tf.train.global_step(sess, global_step)
             if current_step % FLAGS.evaluate_every == 0:
